@@ -41,6 +41,19 @@ app.delete('/:col/:key', async (req, res) => {
   res.json(item).end()
 })
 
+// Delete all items
+app.delete("/:col", async (req, res) => {
+  const col = req.params.col
+  const key = req.params.key
+  const { results: collection } = await db.collection(col).list();
+
+  await Promise.all(
+    collection.map(async ({ key }) => await db.collection(col).delete(key))
+  )
+
+  res.json({ msg: 'Done!' }).end()
+})
+
 // Get a single item
 app.get('/:col/:key', async (req, res) => {
   const col = req.params.col
@@ -54,10 +67,24 @@ app.get('/:col/:key', async (req, res) => {
 // Get a full listing
 app.get('/:col', async (req, res) => {
   const col = req.params.col
-  console.log(`list collection: ${col} with params: ${JSON.stringify(req.params)}`)
-  const items = await db.collection(col).list()
-  console.log(JSON.stringify(items, null, 2))
-  res.json(items).end()
+  const { results: collection } = await db.collection(col).list();
+
+  const items = await Promise.all(
+    collection.map(async ({ key }) => (await db.collection(col).get(key)).props)
+  );
+
+  const replacer = (key, value) => value === null ? '' : value // specify how you want to handle null values here
+  if (items[0] != null) {
+    const header = Object.keys(items[0])
+    const csv = [
+      header.join(','), // header row first
+      ...items.map(row => header.map(fieldName => JSON.stringify(row[fieldName], replacer)).join(','))
+    ].join('\r\n')
+
+    res.send(csv).end()
+  } else {
+    res.send("No responses").end()
+  }
 })
 
 // Catch all handler for all other request.
