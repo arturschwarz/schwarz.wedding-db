@@ -15,8 +15,12 @@
   },
   "dependencies": {
     "@cyclic.sh/dynamodb": "^0.0.33",
+    "@sendgrid/mail": "^7.7.0",
+    "axios": "^1.4.0",
     "cors": "^2.8.5",
     "env-cmd": "^10.1.0",
-    "express": "^4.18.1"
+    "express": "^4.18.1",
+    "nodemailer": "^6.9.4",
+    "resend": "^0.17.2"
   }
 }

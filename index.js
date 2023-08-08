@@ -2,6 +2,7 @@ const express = require('express')
 const app = express()
 const db = require('@cyclic.sh/dynamodb')
 const cors = require('cors')
+const axios = require('axios').default
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -27,9 +28,33 @@ app.post('/:col/:key', async (req, res) => {
 
   const col = req.params.col
   const key = req.params.key
-  console.log(`from collection: ${col} delete key: ${key} with params ${JSON.stringify(req.params)}`)
   const item = await db.collection(col).set(key, req.body)
-  console.log(JSON.stringify(item, null, 2))
+  var jsonString = JSON.stringify(item)
+  var json = JSON.parse(jsonString)
+  var accepted = (json.props.accepted) ? "Ja" : "Nein"
+
+  axios.post('https://api.sendgrid.com/v3/mail/send', 
+    {"personalizations": [
+      {"to": [{"email": "arturundjulia@gmail.com"}]}],
+       "from": {"email": "mail@schwarz.wedding"},
+       "subject": 'Neue Rückmeldung von ' + json.props.name + '!',
+       "content": [{"type": "text/plain", "value": 'Eine neue Rückmeldung wurde gespeichert! \r\n\r\n' 
+            + 'Zugesagt? ' + accepted + '\r\n' 
+            + 'Weitere Personen: ' + json.props.more}]
+     }, 
+    {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ` + process.env.SENDGRID_API_KEY 
+    }
+  })
+  .then(function (response) {
+    console.log(response);
+  })
+  .catch(function (error) {
+    console.log(error);
+  });
+  
   res.json(item).end()
 })
 
@@ -72,27 +97,29 @@ app.get('/:col', async (req, res) => {
   const { results: collection } = await db.collection(col).list();
 
   const items = await Promise.all(
-    collection.map(async ({ key }) => (await db.collection(col).get(key)).props)
+    collection.map(async ({ key }) => (await db.collection(col).get(key)))
   );
 
-  const replacer = (key, value) => value === null ? '' : value // specify how you want to handle null values here
   if (items[0] != null) {
-    const header = Object.keys(items[0]).reverse()
-    var index = header.indexOf("created");
-    if (index > -1) {
-      header.splice(index, 1);
-    } 
-    index = header.indexOf("updated");
-    if (index > -1) { 
-      header.splice(index, 1);
-    }
-    const html = [
-      ...items.map(row => header.map(fieldName => JSON.stringify(row[fieldName], replacer)).join(','))
-    ].join('<br/>')
-
-    res.send(html).end()
+    var response = ''
+    var acceptedItems = items.filter((item) => item.props.accepted === true)    
+    var declinedItems = items.filter((item) => item.props.accepted === false)
+    var response = '<h3 style="font-family: system-ui;">Zusagen</h3><br/><ul>'
+    acceptedItems.forEach(
+        (item) => {
+          response += '<li><p style="font-family: system-ui;">' + item.props.name + ' (Weitere Personen: ' + item.props.more + ')</p></li>'
+        }
+    )
+    response += '</ul><br/><h3 style="font-family: system-ui;">Absagen</h3><br/><ul>'
+    declinedItems.forEach(
+        (item) => {
+          response += '<li><p style="font-family: system-ui;">' + item.props.name + ' (Weitere Personen: ' + item.props.more + ')</p></li>'
+        }
+    )
+    response += '</ul>'
+    res.send(response).end()
   } else {
-    res.send("No responses").end()
+    res.send('<h3 style="font-family: system-ui;">Zusagen</h3><br/><br/><h3 style="font-family: system-ui;">Absagen</h3><br/>').end()
   }
 })
 
