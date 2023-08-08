@@ -4,6 +4,11 @@ const db = require('@cyclic.sh/dynamodb')
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', '*');
+  next();
+});
 
 // #############################################################################
 // This configures static hosting for files in /public that have the extensions
