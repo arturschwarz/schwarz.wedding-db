@@ -48,12 +48,12 @@ app.post('/:col/:key', async (req, res) => {
       'Authorization': `Bearer ` + process.env.SENDGRID_API_KEY 
     }
   })
-  .then(function (response) {
+  /*.then(function (response) {
     console.log(response);
   })
   .catch(function (error) {
     console.log(error);
-  });
+  });*/
   
   res.json(item).end()
 })
